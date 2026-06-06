@@ -13,6 +13,38 @@ const formatNumber = (value: number) => new Intl.NumberFormat('de-DE').format(va
 const cellDigits = (value: number, columns: number) =>
   value.toString().padStart(columns, ' ').split('').map((digit) => (digit === ' ' ? '' : digit));
 
+type AudioWindow = Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext };
+
+type SuccessCue = {
+  id: number;
+  starsAwarded: number;
+  streak: number;
+  levelUp: boolean;
+};
+
+const playSuccessSound = () => {
+  const AudioContextClass = window.AudioContext ?? (window as AudioWindow).webkitAudioContext;
+  if (!AudioContextClass) return;
+
+  const context = new AudioContextClass();
+  const gain = context.createGain();
+  gain.connect(context.destination);
+  gain.gain.setValueAtTime(0.0001, context.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.18, context.currentTime + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.48);
+
+  [523.25, 659.25, 783.99].forEach((frequency, index) => {
+    const oscillator = context.createOscillator();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(frequency, context.currentTime + index * 0.1);
+    oscillator.connect(gain);
+    oscillator.start(context.currentTime + index * 0.1);
+    oscillator.stop(context.currentTime + index * 0.1 + 0.18);
+  });
+
+  window.setTimeout(() => void context.close(), 700);
+};
+
 export function App() {
   const [progress, setProgress] = useState<ProgressState>(() => loadProgress());
   const [task, setTask] = useState<AdditionTask>(() => generateTask(loadProgress().currentLevel));
@@ -20,6 +52,7 @@ export function App() {
   const [activeColumn, setActiveColumn] = useState(0);
   const [mistakes, setMistakes] = useState<Record<number, number>>({});
   const [message, setMessage] = useState('Starte rechts bei den Einern.');
+  const [successCue, setSuccessCue] = useState<SuccessCue | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   useEffect(() => {
@@ -60,9 +93,18 @@ export function App() {
     }
 
     const nextProgress = recordSolvedTask(progress, task, mistakes);
+    const starsAwarded = 3 + task.level;
+    playSuccessSound();
     setProgress(nextProgress);
-    setMessage(`Gelost: ${formatNumber(task.sum)}. Neue Aufgabe kommt.`);
-    window.setTimeout(() => startTask(nextProgress.currentLevel), 450);
+    setSuccessCue({
+      id: Date.now(),
+      starsAwarded,
+      streak: nextProgress.streak,
+      levelUp: nextProgress.currentLevel > progress.currentLevel,
+    });
+    setMessage(`Geschafft: ${formatNumber(task.sum)}. Du sammelst ${starsAwarded} Sterne.`);
+    window.setTimeout(() => startTask(nextProgress.currentLevel), 1200);
+    window.setTimeout(() => setSuccessCue(null), 1600);
   };
 
   const deleteDigit = () => {
@@ -90,7 +132,7 @@ export function App() {
           </div>
         </div>
         <div className="stats">
-          <Stat icon={<Star />} label="Sterne" value={progress.stars} />
+          <Stat icon={<Star />} label="Sterne" value={progress.stars} highlight={Boolean(successCue)} />
           <Stat icon={<Flame />} label="Serie" value={progress.streak} />
           <Stat icon={<Target />} label="Heute" value={`${progress.dailySolvedCount}/${DAILY_GOAL}`} />
         </div>
@@ -130,6 +172,20 @@ export function App() {
         </aside>
 
         <section className="workbench" aria-label="Aufgabe">
+          {successCue && (
+            <div className="success-burst" role="status" aria-live="polite" key={successCue.id}>
+              <div className="burst-stars" aria-hidden="true">
+                <span>*</span>
+                <span>*</span>
+                <span>*</span>
+                <span>*</span>
+              </div>
+              <strong>{successCue.levelUp ? 'Level geschafft!' : 'Erfolg gesammelt!'}</strong>
+              <span>+{successCue.starsAwarded} Sterne</span>
+              <small>Serie: {successCue.streak}</small>
+            </div>
+          )}
+
           <div className="task-header">
             <div>
               <span className="eyebrow">Mission</span>
@@ -227,9 +283,19 @@ export function App() {
   );
 }
 
-function Stat({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) {
+function Stat({
+  icon,
+  label,
+  value,
+  highlight = false,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: ReactNode;
+  highlight?: boolean;
+}) {
   return (
-    <div className="stat">
+    <div className={`stat ${highlight ? 'is-celebrating' : ''}`}>
       {icon}
       <span>{label}</span>
       <strong>{value}</strong>
