@@ -33,7 +33,7 @@ jobs:
           trap 'kill "$preview_pid"' EXIT
 
           for attempt in {1..30}; do
-            if curl --fail --silent --show-error http://127.0.0.1:4173/jonathan-rechnen/ > /tmp/renovate-app-smoke.html; then
+            if curl --fail --silent --show-error http://127.0.0.1:4173/ > /tmp/renovate-app-smoke.html; then
               grep --quiet '<div id="root"></div>' /tmp/renovate-app-smoke.html
               exit 0
             fi
