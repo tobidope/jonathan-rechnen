@@ -1,7 +1,7 @@
 import { Award, Flame, RefreshCcw, RotateCcw, Rocket, Star, Target } from 'lucide-react';
 import type { CSSProperties, ReactNode } from 'react';
-import { useEffect, useMemo, useState } from 'react';
-import { carryRowDigits, checkColumn } from './domain/columnChecker';
+import { useEffect, useState } from 'react';
+import { checkColumn } from './domain/columnChecker';
 import { DAILY_GOAL, BADGES, loadProgress, recordSolvedTask, resetProgress, saveProgress } from './domain/progress';
 import { generateTask } from './domain/taskGenerator';
 import type { AdditionTask, ProgressState } from './domain/types';
@@ -49,6 +49,9 @@ export function App() {
   const [progress, setProgress] = useState<ProgressState>(() => loadProgress());
   const [task, setTask] = useState<AdditionTask>(() => generateTask(loadProgress().currentLevel));
   const [inputs, setInputs] = useState<Array<number | null>>(() => Array.from({ length: task.columns }, () => null));
+  const [revealedCarries, setRevealedCarries] = useState<Array<number | null>>(() =>
+    Array.from({ length: task.columns }, () => null),
+  );
   const [activeColumn, setActiveColumn] = useState(0);
   const [mistakes, setMistakes] = useState<Record<number, number>>({});
   const [message, setMessage] = useState('Starte rechts bei den Einern.');
@@ -59,7 +62,6 @@ export function App() {
     saveProgress(progress);
   }, [progress]);
 
-  const carries = useMemo(() => carryRowDigits(task), [task]);
   const visibleInput = Array.from({ length: task.columns }, (_, visualIndex) => {
     const column = task.columns - visualIndex - 1;
     return inputs[column];
@@ -69,6 +71,7 @@ export function App() {
     const nextTask = generateTask(level);
     setTask(nextTask);
     setInputs(Array.from({ length: nextTask.columns }, () => null));
+    setRevealedCarries(Array.from({ length: nextTask.columns }, () => null));
     setActiveColumn(0);
     setMistakes({});
     setMessage('Starte rechts bei den Einern.');
@@ -87,8 +90,16 @@ export function App() {
     }
 
     if (activeColumn < task.columns - 1) {
+      if (result.expectedCarryOut > 0) {
+        setRevealedCarries((current) => {
+          const nextCarries = [...current];
+          const visualColumn = task.columns - activeColumn - 2;
+          if (visualColumn >= 0) nextCarries[visualColumn] = result.expectedCarryOut;
+          return nextCarries;
+        });
+      }
       setActiveColumn((column) => column + 1);
-      setMessage(result.expectedCarryOut > 0 ? `Uebertrag ${result.expectedCarryOut} mitnehmen.` : 'Richtig. Weiter nach links.');
+      setMessage('Richtig. Weiter nach links.');
       return;
     }
 
@@ -199,7 +210,7 @@ export function App() {
           <div className="addition-board" style={{ '--columns': task.columns } as CSSProperties}>
             <div className="carry-row">
               <span className="operator-space" />
-              {carries.map((digit, index) => (
+              {revealedCarries.map((digit, index) => (
                 <span className="carry-cell" key={`carry-${index}`}>
                   {digit ?? ''}
                 </span>
