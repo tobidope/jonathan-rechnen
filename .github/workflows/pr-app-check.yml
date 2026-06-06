@@ -1,0 +1,44 @@
+name: Pull request app check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-app-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  app-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 26
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm build
+      - name: Smoke-test built app
+        run: |
+          pnpm exec vite preview --host 127.0.0.1 --port 4173 &
+          preview_pid=$!
+          trap 'kill "$preview_pid"' EXIT
+
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error http://127.0.0.1:4173/jonathan-rechnen/ > /tmp/renovate-app-smoke.html; then
+              grep --quiet '<div id="root"></div>' /tmp/renovate-app-smoke.html
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo "Built app did not become available through vite preview."
+          exit 1
