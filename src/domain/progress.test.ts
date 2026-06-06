@@ -35,6 +35,8 @@ describe('progression', () => {
     progress = recordSolvedTask(progress, task, {});
     progress = recordSolvedTask(progress, task, { 0: 1 });
     expect(progress.totalSolved).toBe(2);
+    expect(progress.streak).toBe(0);
+    expect(progress.bestStreak).toBe(1);
     expect(progress.currentLevel).toBe(1);
     expect(progress.successRunAtLevel).toBe(0);
     expect(progress.mistakeStatsByColumn['0']).toBe(1);

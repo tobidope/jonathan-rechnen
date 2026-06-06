@@ -66,10 +66,10 @@ export const recordSolvedTask = (
   mistakesByColumn: Record<number, number>,
 ): ProgressState => {
   const solvedCount = progress.totalSolved + 1;
-  const streak = progress.streak + 1;
   const dailySolvedCount = progress.dailySolvedCount + 1;
   const mistakeCount = Object.values(mistakesByColumn).reduce((total, value) => total + value, 0);
   const cleanSolve = mistakeCount === 0;
+  const streak = cleanSolve ? progress.streak + 1 : 0;
   const successRunAtLevel = cleanSolve ? progress.successRunAtLevel + 1 : 0;
   const promoted = successRunAtLevel >= SUCCESS_RUN_TO_LEVEL_UP && progress.currentLevel < 6;
   const currentLevel = promoted ? nextLevel(progress.currentLevel) : progress.currentLevel;

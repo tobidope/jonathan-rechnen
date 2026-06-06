@@ -1,6 +1,7 @@
 node_modules
 dist
 .pnpm-store
+.codex-gh
 .DS_Store
 *.local
 coverage
